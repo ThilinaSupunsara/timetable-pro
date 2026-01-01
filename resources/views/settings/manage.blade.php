@@ -1,106 +1,123 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <title>Manage Time Structure</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <style>
-        .drag-handle { cursor: move; color: #aaa; }
-    </style>
-</head>
-<body class="bg-light">
+@extends('layouts.app')
 
-<div class="container mt-5">
-    <div class="mb-3">
-        <a href="{{ route('settings.index') }}" class="btn btn-secondary">&larr; Back to Settings</a>
-    </div>
+@section('title', 'Manage Times | Timetable System')
 
-    <div class="card shadow">
-        <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center">
-            <div>
-                <h4 class="mb-0">{{ $category->name }} - Time Structure</h4>
-                <small>Define daily routine (Assembly, Periods, Intervals)</small>
-            </div>
-            <button type="button" class="btn btn-primary" onclick="addSlot()">+ Add New Slot</button>
+@section('content')
+<div class="container pb-5">
+
+    <div class="d-flex justify-content-between align-items-center mb-4 fade-in">
+        <div>
+            <a href="{{ route('settings.index') }}" class="text-decoration-none text-muted small fw-bold mb-1 d-block">
+                <i class="bi bi-arrow-left me-1"></i> Back to Settings
+            </a>
+            <h4 class="fw-bold mb-0 text-dark">
+                <i class="bi bi-clock-history text-primary me-2"></i> {{ $category->name }} Structure
+            </h4>
         </div>
 
-        <div class="card-body">
-            @if(session('success'))
-                <div class="alert alert-success">{{ session('success') }}</div>
-            @endif
+        <button type="button" class="btn btn-primary shadow-sm" onclick="addSlot()">
+            <i class="bi bi-plus-lg me-1"></i> Add New Slot
+        </button>
+    </div>
 
-            <form action="{{ route('settings.update', $category->id) }}" method="POST">
+    <div class="card-modern fade-in">
+        <div class="p-4">
+
+            <form action="{{ route('settings.update', $category->id) }}" method="POST" id="timeForm">
                 @csrf
 
-                <table class="table table-bordered align-middle" id="slotsTable">
-                    <thead class="table-secondary">
-                        <tr>
-                            <th width="5%">#</th>
-                            <th width="30%">Slot Name (Label)</th>
-                            <th width="20%">Start Time</th>
-                            <th width="20%">End Time</th>
-                            <th width="15%" class="text-center">Is Break?</th>
-                            <th width="10%">Action</th>
-                        </tr>
-                    </thead>
-                    <tbody id="slotsBody">
-                        @foreach($category->periodTimings as $index => $timing)
-                        <tr>
-                            <td class="text-center fw-bold">{{ $index + 1 }}</td>
-                            <td>
-                                <input type="text" name="slots[{{ $index }}][label]" value="{{ $timing->label }}" class="form-control" placeholder="Ex: Period 1" required>
-                            </td>
-                            <td>
-                                <input type="time" name="slots[{{ $index }}][start]" value="{{ \Carbon\Carbon::parse($timing->start_time)->format('H:i') }}" class="form-control" required>
-                            </td>
-                            <td>
-                                <input type="time" name="slots[{{ $index }}][end]" value="{{ \Carbon\Carbon::parse($timing->end_time)->format('H:i') }}" class="form-control" required>
-                            </td>
-                            <td class="text-center">
-                                <input type="checkbox" name="slots[{{ $index }}][is_break]" class="form-check-input" value="1" {{ $timing->is_break ? 'checked' : '' }}>
-                            </td>
-                            <td>
-                                <button type="button" class="btn btn-danger btn-sm" onclick="removeSlot(this)">Remove</button>
-                            </td>
-                        </tr>
-                        @endforeach
-                    </tbody>
-                </table>
-
-                <div class="alert alert-info">
-                    <small>💡 Tip: Add "Assembly", "Interval", "Lunch Break" as slots and check 'Is Break'.</small>
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0" id="slotsTable">
+                        <thead class="bg-light border-bottom">
+                            <tr>
+                                <th style="width: 50px;" class="text-center text-muted small text-uppercase">#</th>
+                                <th style="min-width: 250px;" class="text-muted small text-uppercase ps-3">Slot Name (Label)</th>
+                                <th style="width: 180px;" class="text-muted small text-uppercase">Start Time</th>
+                                <th style="width: 180px;" class="text-muted small text-uppercase">End Time</th>
+                                <th style="width: 100px;" class="text-center text-muted small text-uppercase">Is Break?</th>
+                                <th style="width: 80px;" class="text-end text-muted small text-uppercase">Remove</th>
+                            </tr>
+                        </thead>
+                        <tbody id="slotsBody">
+                            @foreach($category->periodTimings as $index => $timing)
+                            <tr>
+                                <td class="text-center fw-bold text-muted">{{ $index + 1 }}</td>
+                                <td class="ps-3">
+                                    <input type="text" name="slots[{{ $index }}][label]" value="{{ $timing->label }}"
+                                           class="form-control" placeholder="Ex: Period 1" required>
+                                </td>
+                                <td>
+                                    <input type="time" name="slots[{{ $index }}][start]" value="{{ \Carbon\Carbon::parse($timing->start_time)->format('H:i') }}"
+                                           class="form-control text-center" required>
+                                </td>
+                                <td>
+                                    <input type="time" name="slots[{{ $index }}][end]" value="{{ \Carbon\Carbon::parse($timing->end_time)->format('H:i') }}"
+                                           class="form-control text-center" required>
+                                </td>
+                                <td class="text-center">
+                                    <div class="form-check d-flex justify-content-center">
+                                        <input type="checkbox" name="slots[{{ $index }}][is_break]" class="form-check-input" value="1"
+                                               {{ $timing->is_break ? 'checked' : '' }} style="transform: scale(1.2); cursor: pointer;">
+                                    </div>
+                                </td>
+                                <td class="text-end">
+                                    <button type="button" class="btn btn-light text-danger btn-sm border" onclick="removeSlot(this)">
+                                        <i class="bi bi-trash-fill"></i>
+                                    </button>
+                                </td>
+                            </tr>
+                            @endforeach
+                        </tbody>
+                    </table>
                 </div>
 
-                <button type="submit" class="btn btn-success btn-lg w-100">Save Time Structure</button>
+                <div class="mt-4 d-flex align-items-center justify-content-between p-3 bg-light rounded-3 border">
+                    <div class="d-flex align-items-center text-muted small">
+                        <i class="bi bi-info-circle-fill text-info fs-5 me-2"></i>
+                        <span>Tip: Mark "Interval" or "Lunch" as <b>Break</b> to avoid scheduling classes.</span>
+                    </div>
+                    <button type="submit" class="btn btn-success fw-bold px-4 py-2 shadow-sm">
+                        <i class="bi bi-check-circle-fill me-2"></i> Save Changes
+                    </button>
+                </div>
+
             </form>
         </div>
     </div>
 </div>
+@endsection
 
+@push('scripts')
 <script>
+    // Keep track of index to ensure unique names
     let slotCount = {{ $category->periodTimings->count() }};
 
     function addSlot() {
         let tbody = document.getElementById('slotsBody');
         let index = slotCount;
 
+        // New Row HTML
         let row = `
-            <tr>
-                <td class="text-center fw-bold text-muted">New</td>
-                <td>
-                    <input type="text" name="slots[${index}][label]" class="form-control" placeholder="Ex: Period ${index + 1} or Interval" required>
+            <tr class="fade-in">
+                <td class="text-center fw-bold text-success small"><i class="bi bi-plus-circle-fill"></i></td>
+                <td class="ps-3">
+                    <input type="text" name="slots[${index}][label]" class="form-control" placeholder="Ex: Period ${index + 1}" required>
                 </td>
                 <td>
-                    <input type="time" name="slots[${index}][start]" class="form-control" required>
+                    <input type="time" name="slots[${index}][start]" class="form-control text-center" required>
                 </td>
                 <td>
-                    <input type="time" name="slots[${index}][end]" class="form-control" required>
+                    <input type="time" name="slots[${index}][end]" class="form-control text-center" required>
                 </td>
                 <td class="text-center">
-                    <input type="checkbox" name="slots[${index}][is_break]" class="form-check-input" value="1">
+                    <div class="form-check d-flex justify-content-center">
+                        <input type="checkbox" name="slots[${index}][is_break]" class="form-check-input" value="1" style="transform: scale(1.2); cursor: pointer;">
+                    </div>
                 </td>
-                <td>
-                    <button type="button" class="btn btn-danger btn-sm" onclick="removeSlot(this)">Remove</button>
+                <td class="text-end">
+                    <button type="button" class="btn btn-light text-danger btn-sm border" onclick="removeSlot(this)">
+                        <i class="bi bi-trash-fill"></i>
+                    </button>
                 </td>
             </tr>
         `;
@@ -110,11 +127,24 @@
     }
 
     function removeSlot(btn) {
-        if(confirm('Are you sure you want to remove this slot?')) {
-            btn.closest('tr').remove();
-        }
+        Swal.fire({
+            title: 'Remove Slot?',
+            text: "Are you sure you want to delete this row?",
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#ef4444',
+            cancelButtonColor: '#64748b',
+            confirmButtonText: 'Yes, remove it',
+            customClass: { popup: 'rounded-4' }
+        }).then((result) => {
+            if (result.isConfirmed) {
+                let row = btn.closest('tr');
+                row.style.transition = "all 0.3s ease";
+                row.style.opacity = '0';
+                row.style.transform = 'translateX(20px)';
+                setTimeout(() => row.remove(), 300);
+            }
+        });
     }
 </script>
-
-</body>
-</html>
+@endpush

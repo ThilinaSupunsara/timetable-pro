@@ -52,6 +52,14 @@ Route::post('/timetable/generate-all', [TimetableController::class, 'generateAll
 
 Route::get('/timetable/download-pdf', [TimetableController::class, 'downloadPdf'])->name('timetable.download_pdf');
 
-Route::get('/timetable/download-teacher-pdf', [TimetableController::class, 'downloadTeacherPdf'])->name('timetable.download_teacher_pdf');
+Route::get('/timetable/teacher/download', [TimetableController::class, 'downloadTeacherPdf'])->name('timetable.download_teacher_pdf');
 
 Route::get('/timetable/master/download', [TimetableController::class, 'downloadMasterPdf'])->name('timetable.download_master');
+
+Route::delete('/subjects/{id}', [SubjectController::class, 'destroy'])->name('subjects.destroy');
+
+Route::delete('/teachers/{id}', [App\Http\Controllers\TeacherController::class, 'destroy'])->name('teachers.destroy');
+
+Route::delete('/sections/{id}', [App\Http\Controllers\SectionController::class, 'destroy'])->name('sections.destroy');
+
+Route::delete('/settings/{id}', [ClassCategoryController::class, 'destroy'])->name('settings.destroy');

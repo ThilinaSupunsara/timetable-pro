@@ -6,6 +6,7 @@ use Illuminate\Http\Request;
 use App\Models\Section;
 use App\Models\TimetableEntry;
 use App\Models\Allocation;
+use App\Models\PeriodTiming;
 use App\Models\Teacher;
 use App\Services\TimetableGenerator;
 use Barryvdh\DomPDF\Facade\Pdf;
@@ -151,41 +152,28 @@ class TimetableController extends Controller
         return $pdf->download('Timetable_'.$selectedSection->grade.'-'.$selectedSection->class_name.'.pdf');
     }
 
-    public function downloadTeacherPdf(Request $request)
+public function downloadTeacherPdf(Request $request)
 {
-    $request->validate(['teacher_id' => 'required|exists:teachers,id']);
+    $teacherId = $request->input('teacher_id');
+    $teacher = Teacher::findOrFail($teacherId);
 
-    $teacher = \App\Models\Teacher::findOrFail($request->teacher_id);
-
-    // 1. Data ගැනීම
+    // 1. Data ලබා ගැනීම
     $entries = TimetableEntry::where('teacher_id', $teacher->id)
                 ->with(['section', 'subject'])
                 ->get();
 
-    // 2. Data සකසා ගැනීම
+    $periodTimings = PeriodTiming::all()->keyBy('period_number');
+    $maxPeriod = $periodTimings->keys()->max() ?? 9;
+
+    // 2. Array එක සකසා ගැනීම
     $timetable = [];
     foreach ($entries as $entry) {
         $timetable[$entry->day_of_week][$entry->period_number] = $entry;
     }
 
-    // 3. වෙලාවල් ගැනීම
-    $periodTimings = \App\Models\PeriodTiming::all()->keyBy('period_number');
-
-    // --- වෙනස් කළ කොටස (UPDATED) ---
-    // කලින් තිබුන 9 අයින් කළා.
-    // දැන් PeriodTiming table එකේ තියෙන ලොකුම අංකය (Max ID) ගන්නවා.
-    // period_number එකක් නැත්නම් Default 9 ගන්නවා (Error එන එක වලක්වන්න).
-    $maxPeriod = \App\Models\PeriodTiming::max('period_number') ?? 9;
-
-    $data = [
-        'teacher' => $teacher,
-        'timetable' => $timetable,
-        'maxPeriod' => $maxPeriod,
-        'periodTimings' => $periodTimings
-    ];
-
-    $pdf = Pdf::loadView('timetable.teacher_pdf_export', $data)
-            ->setPaper('a4', 'landscape');
+    // 3. PDF Generate කිරීම
+    $pdf = Pdf::loadView('timetable.teacher_pdf_export', compact('teacher', 'timetable', 'periodTimings', 'maxPeriod'))
+            ->setPaper('a4', 'portrait'); // ගුරුවරයෙක්ට Portrait ඇති
 
     return $pdf->download('Timetable_' . $teacher->short_code . '.pdf');
 }

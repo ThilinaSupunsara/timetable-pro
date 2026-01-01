@@ -6,7 +6,7 @@
     <style>
         /* --- PAGE SETUP --- */
         @page {
-            margin: 0.5cm; /* පිටුවේ මායිම් අඩු කළා ඉඩ ගන්න */
+            margin: 0.5cm;
         }
         body {
             font-family: 'Helvetica', 'Arial', sans-serif;
@@ -20,7 +20,7 @@
             text-align: center;
             margin-bottom: 30px;
             padding-bottom: 20px;
-            border-bottom: 3px solid #0d6efd; /* නිල් පාට ඉරක් යටින් */
+            border-bottom: 3px solid #0d6efd;
         }
         .main-title {
             font-size: 26px;
@@ -49,13 +49,11 @@
         /* --- TABLE DESIGN --- */
         table {
             width: 100%;
-            border-collapse: collapse; /* ඉරි එකට යා කිරීම */
+            border-collapse: collapse;
             margin-top: 10px;
         }
-
-        /* Table Headers */
         th {
-            background-color: #212529; /* තද කළු/අළු */
+            background-color: #212529;
             color: #fff;
             padding: 12px 5px;
             font-size: 11px;
@@ -63,10 +61,8 @@
             letter-spacing: 1px;
             border: 1px solid #212529;
         }
-
-        /* Table Cells */
         td {
-            border: 1px solid #dee2e6; /* ලා අළු පාට බෝඩර් */
+            border: 1px solid #dee2e6;
             padding: 12px 5px;
             text-align: center;
             vertical-align: middle;
@@ -83,7 +79,7 @@
 
         /* Break/Interval Row */
         .break-row td {
-            background-color: #fff3cd; /* ලා කහ පාට */
+            background-color: #fff3cd;
             color: #856404;
             font-weight: bold;
             text-transform: uppercase;
@@ -97,20 +93,19 @@
             display: block;
             font-size: 13px;
             font-weight: bold;
-            color: #0d6efd; /* විෂය නිල් පාටින් */
+            color: #0d6efd;
             margin-bottom: 4px;
         }
         .teacher {
             display: block;
             font-size: 10px;
-            color: #6c757d; /* ගුරුවරයා අළු පාටින් */
+            color: #6c757d;
             font-style: italic;
         }
         .empty {
             color: #e9ecef;
             font-size: 20px;
         }
-
     </style>
 </head>
 <body>
@@ -139,41 +134,63 @@
         <tbody>
             @foreach($timings as $slot)
 
-            @if($slot->is_break)
-                <tr class="break-row">
-                    <td>
-                        {{ \Carbon\Carbon::parse($slot->start_time)->format('h:i A') }}<br>
-                        {{ \Carbon\Carbon::parse($slot->end_time)->format('h:i A') }}
-                    </td>
-                    <td colspan="5">{{ strtoupper($slot->label) }}</td>
-                </tr>
-            @else
-                <tr>
-                    <td class="time-col">
-                        {{ \Carbon\Carbon::parse($slot->start_time)->format('h:i') }} <span style="font-size:9px; color:#aaa;">AM</span><br>
-                        <span style="color:#ccc; font-size: 10px;">to</span><br>
-                        {{ \Carbon\Carbon::parse($slot->end_time)->format('h:i') }} <span style="font-size:9px; color:#aaa;">PM</span>
-                    </td>
+                @php
+                    // --- ROW HIDING LOGIC ---
+                    $showRow = false;
 
-                    @for($day=1; $day<=5; $day++)
-                        @php $entry = $timetable[$day][$slot->period_number] ?? null; @endphp
+                    // 1. Break එකක් නම් අනිවාර්යයෙන් පෙන්වන්න
+                    if($slot->is_break) {
+                        $showRow = true;
+                    }
+                    // 2. නැත්නම්, දවස් 5 ඇතුලත පන්තියක් තියෙනවද බලන්න
+                    else {
+                        for($d = 1; $d <= 5; $d++) {
+                            if(isset($timetable[$d][$slot->period_number])) {
+                                $showRow = true;
+                                break;
+                            }
+                        }
+                    }
+                @endphp
 
-                        <td>
-                            @if($entry)
-                                <span class="subject">{{ $entry->subject->name }}</span>
-                                @if($entry->teacher)
-                                    <span class="teacher">{{ $entry->teacher->name }}</span>
-                                @endif
-                            @else
-                                <span class="empty">&minus;</span>
-                            @endif
-                        </td>
-                    @endfor
-                </tr>
-            @endif
+                @if($showRow)
+                    @if($slot->is_break)
+                        <tr class="break-row">
+                            <td>
+                                {{ \Carbon\Carbon::parse($slot->start_time)->format('h:i A') }}<br>
+                                {{ \Carbon\Carbon::parse($slot->end_time)->format('h:i A') }}
+                            </td>
+                            <td colspan="5">{{ strtoupper($slot->label) }}</td>
+                        </tr>
+                    @else
+                        <tr>
+                            <td class="time-col">
+                                {{ \Carbon\Carbon::parse($slot->start_time)->format('h:i') }} <span style="font-size:9px; color:#aaa;">AM</span><br>
+                                <span style="color:#ccc; font-size: 10px;">to</span><br>
+                                {{ \Carbon\Carbon::parse($slot->end_time)->format('h:i') }} <span style="font-size:9px; color:#aaa;">PM</span>
+                            </td>
+
+                            @for($day=1; $day<=5; $day++)
+                                @php $entry = $timetable[$day][$slot->period_number] ?? null; @endphp
+
+                                <td>
+                                    @if($entry)
+                                        <span class="subject">{{ $entry->subject->name }}</span>
+                                        @if($entry->teacher)
+                                            <span class="teacher">{{ $entry->teacher->name }}</span>
+                                        @endif
+                                    @else
+                                        <span class="empty">&minus;</span>
+                                    @endif
+                                </td>
+                            @endfor
+                        </tr>
+                    @endif
+                @endif
+
             @endforeach
         </tbody>
     </table>
 
-    </body>
+</body>
 </html>

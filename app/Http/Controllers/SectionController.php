@@ -54,4 +54,21 @@ class SectionController extends Controller
 
         return back()->with('success', 'Class Section Created Successfully!');
     }
+
+    public function destroy($id)
+{
+    $section = Section::findOrFail($id);
+
+    try {
+        // මේ පන්තියට අදාල Allocations සහ Timetable Entries මැකීමට
+        // ඔබේ Database එකේ Cascade Delete දාලා නැත්නම්, පහත කේතය භාවිතා කරන්න:
+        // $section->allocations()->delete();
+        // $section->timetableEntries()->delete();
+
+        $section->delete();
+        return back()->with('success', 'Class deleted successfully!');
+    } catch (\Exception $e) {
+        return back()->with('error', 'Cannot delete this class. It might have linked data.');
+    }
+}
 }

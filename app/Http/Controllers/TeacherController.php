@@ -39,4 +39,19 @@ class TeacherController extends Controller
 
         return back()->with('success', 'Teacher Added with Subjects!');
     }
+
+    public function destroy($id)
+{
+    $teacher = Teacher::findOrFail($id);
+
+    try {
+        // Teacher Subject සම්බන්ධතා ස්වයංක්‍රීයව මැකෙයි (Pivot Table එකේ Cascade දාලා නම්).
+        // නැත්නම්: $teacher->subjects()->detach();
+
+        $teacher->delete();
+        return back()->with('success', 'Teacher removed successfully!');
+    } catch (\Exception $e) {
+        return back()->with('error', 'Cannot delete this teacher. They might be assigned to a timetable.');
+    }
+}
 }

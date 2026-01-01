@@ -64,4 +64,24 @@ class ClassCategoryController extends Controller
 
         return back()->with('success', 'Time Structure Updated Successfully!');
     }
+
+    public function destroy($id)
+{
+    $category = ClassCategory::findOrFail($id);
+
+    // Check if any sections are using this category
+    if ($category->sections()->count() > 0) {
+        return back()->with('error', 'Cannot delete this category because it is assigned to active Classes. Please reassign or delete those classes first.');
+    }
+
+    try {
+        // Delete related timings first (if cascading not set in DB)
+        $category->periodTimings()->delete();
+
+        $category->delete();
+        return back()->with('success', 'Category deleted successfully!');
+    } catch (\Exception $e) {
+        return back()->with('error', 'Something went wrong.');
+    }
+}
 }

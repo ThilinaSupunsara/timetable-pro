@@ -52,6 +52,7 @@
                                 <th style="width: 20%;" class="text-muted small text-uppercase py-3">Teacher</th>
                                 <th style="width: 10%;" class="text-center text-muted small text-uppercase py-3">Periods</th>
                                 <th style="width: 15%;" class="text-muted small text-uppercase py-3">Block Type</th>
+                                <th style="width: 15%;" class="text-muted small text-uppercase py-3">Bucket (Optional)</th>
                                 <th style="width: 25%;" class="text-muted small text-uppercase py-3">Fixed Slot (Optional)</th>
                                 <th style="width: 5%;" class="text-end pe-4 text-muted small text-uppercase py-3">Action</th>
                             </tr>
@@ -158,6 +159,12 @@
                         <option value="4" ${consecutive == 4 ? 'selected' : ''}>Quadruple Block (4)</option> </select>
                     </select>
                     <div id="error_type_${index}" class="invalid-feedback-custom d-none"></div>
+                </td>
+                <td>
+                    <input type="text" name="allocations[${index}][bucket_name]"
+                        value="${data && data.bucket_name ? data.bucket_name : ''}"
+                        class="form-control text-uppercase text-center"
+                        placeholder="Ex: AES">
                 </td>
                 <td>
                     <div class="d-flex align-items-center bg-light p-1 rounded border">

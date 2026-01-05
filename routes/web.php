@@ -63,3 +63,12 @@ Route::delete('/teachers/{id}', [App\Http\Controllers\TeacherController::class, 
 Route::delete('/sections/{id}', [App\Http\Controllers\SectionController::class, 'destroy'])->name('sections.destroy');
 
 Route::delete('/settings/{id}', [ClassCategoryController::class, 'destroy'])->name('settings.destroy');
+
+// 1. Global Generation Route (For "Run Algorithm")
+Route::post('/timetable/generate-python', [TimetableController::class, 'generateWithPython'])
+    ->name('timetable.generate_python');
+
+// 2. Single Class Generation Route (For "Regenerate" button next to class)
+// URL එකේ ID එක යවන්න ඕන (උදා: /timetable/generate-single/5)
+Route::post('/timetable/generate-single/{section}', [TimetableController::class, 'generateSingleWithPython'])
+    ->name('timetable.generate_single_python');

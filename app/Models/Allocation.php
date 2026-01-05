@@ -12,7 +12,7 @@ class Allocation extends Model
     protected $fillable = [
         'section_id', 'subject_id', 'teacher_id',
         'periods_per_week', 'consecutive_periods',
-        'is_fixed_slot', 'fixed_day', 'fixed_period'
+        'is_fixed_slot', 'fixed_day', 'fixed_period','bucket_name',
     ];
 
     public function section() { return $this->belongsTo(Section::class); }

@@ -171,19 +171,32 @@
                             </td>
 
                             @for($day=1; $day<=5; $day++)
-                                @php $entry = $timetable[$day][$slot->period_number] ?? null; @endphp
+    <td>
+        {{-- 1. අදාල දවසට සහ වෙලාවට Data තියෙනවද බලන්න --}}
+        @if(isset($timetable[$day][$slot->period_number]))
 
-                                <td>
-                                    @if($entry)
-                                        <span class="subject">{{ $entry->subject->name }}</span>
-                                        @if($entry->teacher)
-                                            <span class="teacher">{{ $entry->teacher->name }}</span>
-                                        @endif
-                                    @else
-                                        <span class="empty">&minus;</span>
-                                    @endif
-                                </td>
-                            @endfor
+            {{-- 2. Data තියෙනවා නම්, ඒ වෙලාවේ තියෙන හැම විෂයක්ම Loop කරන්න --}}
+            @foreach($timetable[$day][$slot->period_number] as $entry)
+
+                {{-- එක විෂයක් පෙන්වන කොටස (margin-bottom දැම්මේ ඊලඟ විෂයෙන් වෙන් කරගන්න) --}}
+                <div style="margin-bottom: 8px; border-bottom: 1px solid #eee; padding-bottom: 2px;">
+                    <span class="subject">{{ $entry->subject->name }}</span>
+
+                    @if($entry->teacher)
+                        {{-- PDF එකේදි teacher නම ඊලඟ පේළියට ගන්න <br> දාන එක හොඳයි --}}
+                        <br>
+                        <span class="teacher">{{ $entry->teacher->name }}</span>
+                    @endif
+                </div>
+
+            @endforeach
+
+        @else
+            {{-- Data නැත්නම් හිස්ව තියන්න --}}
+            <span class="empty">&minus;</span>
+        @endif
+    </td>
+@endfor
                         </tr>
                     @endif
                 @endif

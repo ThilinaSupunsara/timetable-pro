@@ -175,7 +175,7 @@
                     <i class="bi bi-cpu fs-1 me-2"></i>
                     <h5 class="m-0 text-success">Auto-Generator</h5>
                 </div>
-                <form action="{{ route('timetable.generate_all') }}" method="POST" id="generateMasterForm">
+                <form action="{{ route('timetable.generate_python') }}" method="POST" id="generateMasterForm">
                     @csrf
                     <button type="button" class="btn-generate shadow-sm" onclick="confirmGenerate(event)">
                         <i class="bi bi-play-fill me-1"></i> Run Algorithm

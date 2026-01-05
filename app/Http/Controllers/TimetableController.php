@@ -10,77 +10,204 @@ use App\Models\PeriodTiming;
 use App\Models\Teacher;
 use App\Services\TimetableGenerator;
 use Barryvdh\DomPDF\Facade\Pdf;
+use Illuminate\Support\Facades\Process;
 
 class TimetableController extends Controller
 {
-    /**
-     * 1. තනි පන්තියක් සඳහා කාලසටහන සැකසීම (Single Class Generation)
+/**
+     * 1. SINGLE CLASS GENERATION
      */
-    public function generate(Request $request, TimetableGenerator $generator)
+    public function generateSingleWithPython(Request $request, TimetableGenerator $validatorService, $sectionId)
     {
-        $request->validate(['section_id' => 'required|exists:sections,id']);
+        set_time_limit(600);
+        ini_set('memory_limit', '512M');
 
-        $section = Section::with('classCategory.periodTimings')->findOrFail($request->section_id);
+        $section = Section::with('classCategory.periodTimings')->findOrFail($sectionId);
 
-        // --- VALIDATION 1: CAPACITY CHECK (ඉඩ ප්‍රමාණය පරීක්ෂා කිරීම) ---
-
-        // A. සතියට තියෙන මුළු ඉඩ (Slots) ගණන (Intervals හැර)
+        // --- STEP 1: Basic PHP Validations ---
         $slotsPerDay = $section->classCategory->periodTimings->where('is_break', false)->count();
-        $totalAvailableSlots = $slotsPerDay * 5; // දවස් 5 ට
+        $totalTeachingSlots = $slotsPerDay * 5;
+        $totalAssignedPeriods = Allocation::where('section_id', $sectionId)->sum('periods_per_week');
 
-        if ($totalAvailableSlots == 0) {
-            return back()->with('error', 'Settings Error: No teaching slots found in Settings for this class category.');
+        if ($totalTeachingSlots == 0) return back()->with('error', 'Settings Error: No teaching slots found.');
+
+        if ($totalAssignedPeriods > $totalTeachingSlots) {
+            $diff = $totalAssignedPeriods - $totalTeachingSlots;
+            return back()->with('error', "Capacity Error: Assigned {$totalAssignedPeriods} periods, but only {$totalTeachingSlots} teaching slots available. Remove {$diff} periods.");
         }
 
-        // B. මෙම පන්තියට Assign කර ඇති මුළු පීරියඩ් ගණන
-        $totalAssignedPeriods = Allocation::where('section_id', $section->id)->sum('periods_per_week');
+        // --- STEP 2: Gap Analysis ---
+        $preErrors = $validatorService->validateSystemData($sectionId);
+        if (!empty($preErrors)) return back()->with('error', 'Validation Failed: ' . implode(', ', $preErrors));
 
-        // C. ඉඩ මදි නම් Error එකක්!
-        if ($totalAssignedPeriods > $totalAvailableSlots) {
-            $diff = $totalAssignedPeriods - $totalAvailableSlots;
-            return back()->with('error', "Capacity Error: You have assigned {$totalAssignedPeriods} periods, but the week only has space for {$totalAvailableSlots}. Please remove {$diff} periods from Allocations.");
-        }
+        // --- STEP 3: PREPARE DATA ---
 
-        // --- GENERATION PROCESS ---
+        // A. Max Period (Intervals ඇතුලත්ව මුළු පීරියඩ් ගණන)
+        $maxPeriod = PeriodTiming::where('class_category_id', $section->class_category_id)
+                        ->max('period_number');
 
-        try {
-            // Service එක හරහා generate කරනවා (Returns unassigned subjects list)
-            $unassignedList = $generator->generate($request->section_id);
+        // B. Break Map (Intervals)
+        $breakPeriods = $section->classCategory->periodTimings
+                            ->where('is_break', true)
+                            ->pluck('period_number')
+                            ->toArray();
+        $breakMap = [$sectionId => array_values($breakPeriods)];
 
-            // --- VALIDATION 2: COMPLETION CHECK ---
-            if (!empty($unassignedList)) {
-                $msg = "Timetable generated with warnings! The following subjects could not be fully assigned (likely due to teacher clashes): " . implode(', ', $unassignedList);
-                return back()->with('error', $msg);
-            }
+        // C. Allocations with Relations
+        $allocationsQuery = Allocation::where('section_id', $sectionId)
+                        ->with(['teacher', 'subject', 'section']); // Section එකත් Load කරනවා
 
-            return back()->with('success', 'Timetable Generated Successfully! All subjects assigned.');
+        $allocations = $this->formatAllocationsForPython($allocationsQuery->get());
 
-        } catch (\Exception $e) {
-            return back()->with('error', $e->getMessage());
-        }
+        // D. Busy Slots
+        $teacherIds = array_filter(array_column($allocations, 'teacher_id'));
+        $busySlots = TimetableEntry::whereIn('teacher_id', $teacherIds)
+                        ->where('section_id', '!=', $sectionId)
+                        ->select('teacher_id', 'day_of_week as day', 'period_number as period')
+                        ->get()->toArray();
+
+        $inputData = [
+            'num_periods' => (int)$maxPeriod, // පේළි අඩුවීම නවත්වන විසඳුම
+            'allocations' => $allocations,
+            'blocked' => $busySlots,
+            'break_map' => $breakMap // Intervals
+        ];
+
+        return $this->runPythonScript($inputData, false, $sectionId);
     }
 
     /**
-     * 2. මුළු පාසලම එකවර Generate කිරීම (Global Generation)
-     * මෙය Dashboard එකෙන් Call කරනු ලැබේ.
+     * 2. GLOBAL GENERATION
      */
-    public function generateAll(TimetableGenerator $generator)
+    public function generateWithPython(TimetableGenerator $validatorService)
     {
-        try {
-            // මුළු පාසලම Generate කරන Service Function එක Call කිරීම
-            $unassignedList = $generator->generateAll();
+        set_time_limit(600);
+        ini_set('memory_limit', '512M');
 
-            if (!empty($unassignedList)) {
-                // දාගන්න බැරි වුන ලිස්ට් එක Session එකට දානවා (Dashboard එකේ Report එකක් විදියට පෙන්නන්න)
-                return redirect()->route('dashboard')
-                        ->with('warning_list', $unassignedList)
-                        ->with('error', 'Timetable Generated with Conflicts! See the report below.');
+        $validationErrors = $validatorService->validateSystemData();
+        if (!empty($validationErrors)) {
+            return redirect()->route('dashboard')
+                    ->with('warning_list', $validationErrors)
+                    ->with('error', 'Pre-Check Failed! Please fix issues below.');
+        }
+
+        // Global Max Period
+        $maxPeriod = PeriodTiming::max('period_number');
+
+        // Global Allocations
+        $allocationsQuery = Allocation::with(['teacher', 'subject', 'section']);
+        $allocations = $this->formatAllocationsForPython($allocationsQuery->get());
+
+        // Global Break Map
+        $sections = Section::with('classCategory.periodTimings')->get();
+        $breakMap = [];
+        foreach($sections as $sec) {
+            $breaks = $sec->classCategory->periodTimings
+                        ->where('is_break', true)
+                        ->pluck('period_number')
+                        ->toArray();
+            if (!empty($breaks)) {
+                $breakMap[$sec->id] = array_values($breaks);
+            }
+        }
+
+        $inputData = [
+            'num_periods' => (int)$maxPeriod,
+            'allocations' => $allocations,
+            'blocked' => [],
+            'break_map' => $breakMap
+        ];
+
+        return $this->runPythonScript($inputData, true);
+    }
+
+    // --- Helper: Format Data ---
+    private function formatAllocationsForPython($collection)
+    {
+        return $collection->map(function ($item) {
+            $secName = $item->section ? ($item->section->grade . '-' . $item->section->class_name) : 'Unknown';
+
+            return [
+                'id' => $item->id,
+                'teacher_id' => $item->teacher_id,
+                'teacher_name' => $item->teacher ? $item->teacher->name : 'No Teacher',
+                'subject_id' => $item->subject_id,
+                'subject_name' => $item->subject ? $item->subject->name : 'Unknown',
+                'section_id' => $item->section_id,
+                'section_name' => $secName,
+                'total_periods' => $item->periods_per_week,
+                'duration' => $item->consecutive_periods,
+                'is_fixed' => $item->is_fixed_slot,
+                'fixed_day' => $item->fixed_day,
+                'fixed_period' => $item->fixed_period,
+                'bucket_name' => $item->bucket_name // <--- NEW: Bucket Name යවනවා
+            ];
+        })->toArray();
+    }
+
+    // --- Helper: Run Python ---
+    private function runPythonScript($inputData, $isGlobal, $sectionId = null)
+    {
+        // ⚠️ ඔබේ Python Path එක (මේක වෙනස් කරන්න එපා ඔයාගේ මැෂින් එකේ හරි නම්)
+        /*$pythonPath = "C:\\Users\\thili\\AppData\\Local\\Programs\\Python\\Python312\\python.exe";
+        $scriptPath = base_path('scheduler.py');
+        $command = "\"$pythonPath\" \"$scriptPath\"";*/
+
+         $pythonPath = "python";
+
+        $scriptPath = base_path('scheduler.py');
+        $command = "\"$pythonPath\" \"$scriptPath\"";
+
+        try {
+            $process = Process::input(json_encode($inputData))
+                        ->timeout(120)
+                        ->run($command);
+
+            if ($process->failed()) return back()->with('error', 'System Error: ' . $process->errorOutput());
+
+            $output = $process->output();
+            if (empty($output)) return back()->with('error', 'Python returned no data.');
+
+            $result = json_decode($output, true);
+
+            if (!$result || !isset($result['status'])) {
+                return back()->with('error', 'Invalid Output: ' . $output);
             }
 
-            return redirect()->route('dashboard')->with('success', 'Master Timetable Generated Successfully for ALL Classes!');
+            if ($result['status'] === 'success') {
+                if ($isGlobal) TimetableEntry::truncate();
+                else TimetableEntry::where('section_id', $sectionId)->delete();
+
+                $entries = [];
+                $allocMap = [];
+                foreach($inputData['allocations'] as $a) $allocMap[$a['id']] = $a;
+
+                foreach ($result['data'] as $row) {
+                    $allocData = $allocMap[$row['allocation_id']] ?? null;
+                    if ($allocData) {
+                        $entries[] = [
+                            'section_id' => $allocData['section_id'],
+                            'subject_id' => $allocData['subject_id'],
+                            'teacher_id' => $allocData['teacher_id'],
+                            'day_of_week' => $row['day'],
+                            'period_number' => $row['period'],
+                            'created_at' => now(),
+                            'updated_at' => now(),
+                        ];
+                    }
+                }
+                if (!empty($entries)) TimetableEntry::insert($entries);
+
+                $msg = $isGlobal ? 'Master Timetable Generated Successfully!' : 'Class Timetable Updated Successfully!';
+                return back()->with('success', $msg);
+
+            } else {
+                // Error එකක් ආවොත්, Python වලින් එවන පැහැදිලි මැසේජ් එක පෙන්වනවා
+                return back()->with('error', $result['message']);
+            }
 
         } catch (\Exception $e) {
-            return back()->with('error', $e->getMessage());
+            return back()->with('error', 'Controller Error: ' . $e->getMessage());
         }
     }
 
@@ -111,8 +238,10 @@ class TimetableController extends Controller
                             ->get();
 
                 // C. Data ටික Grid එකකට දාගන්නවා
+                $timetable = [];
                 foreach ($entries as $entry) {
-                    $timetable[$entry->day_of_week][$entry->period_number] = $entry;
+                    // Array එකක් විදියට දත්ත දාන්න ඕන '[]' ලකුණ පාවිච්චි කරලා
+                    $timetable[$entry->day_of_week][$entry->period_number][] = $entry;
                 }
             }
         }
@@ -132,10 +261,12 @@ class TimetableController extends Controller
                     ->with(['subject', 'teacher'])
                     ->get();
 
-        $timetable = [];
-        foreach ($entries as $entry) {
-            $timetable[$entry->day_of_week][$entry->period_number] = $entry;
-        }
+        // C. Data ටික Grid එකකට දාගන්නවා
+                $timetable = [];
+                foreach ($entries as $entry) {
+                    // Array එකක් විදියට දත්ත දාන්න ඕන '[]' ලකුණ පාවිච්චි කරලා
+                    $timetable[$entry->day_of_week][$entry->period_number][] = $entry;
+                }
 
         // Data Array එක
         $data = [

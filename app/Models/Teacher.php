@@ -13,4 +13,8 @@ class Teacher extends Model
     {
         return $this->belongsToMany(Subject::class);
     }
+    public function allocations()
+    {
+        return $this->hasMany(Allocation::class);
+    }
 }

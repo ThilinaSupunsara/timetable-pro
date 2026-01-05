@@ -123,7 +123,7 @@ class AllocationController extends Controller
                         'teacher_id' => $data['teacher_id'] ?? null,
                         'periods_per_week' => $data['periods'],
                         'consecutive_periods' => $data['consecutive'],
-
+                        'bucket_name' => $data['bucket_name'] ?? null,
                         'is_fixed_slot' => isset($data['is_fixed']),
                         'fixed_day' => isset($data['is_fixed']) ? $data['fixed_day'] : null,
                         'fixed_period' => isset($data['is_fixed']) ? $data['fixed_period'] : null,

@@ -15,7 +15,7 @@
             <a href="{{ route('sections.index') }}" class="btn btn-light text-muted border" style="border-radius: 10px;">
                 <i class="bi bi-arrow-left me-1"></i> Classes
             </a>
-            <form action="{{ route('timetable.generate_all') }}" method="POST" id="quickGenForm">
+            <form action="{{ route('timetable.generate_python') }}" method="POST" id="quickGenForm">
                 @csrf
                 <button type="button" class="btn btn-success text-white px-4 shadow-sm" style="border-radius: 10px;" onclick="confirmQuickGenerate()">
                     Auto Generate <i class="bi bi-lightning-charge-fill ms-1"></i>

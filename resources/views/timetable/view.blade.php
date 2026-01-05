@@ -19,7 +19,7 @@
                     <i class="bi bi-file-earmark-pdf-fill me-1"></i> PDF
                 </a>
 
-                <form action="{{ route('timetable.generate') }}" method="POST" onsubmit="return confirm('Regenerate?');">
+                <form action="{{ route('timetable.generate_single_python', $selectedSection->id) }}" method="POST" onsubmit="return confirm('Regenerate?');">
                     @csrf
                     <input type="hidden" name="section_id" value="{{ $selectedSection->id }}">
                     <button type="submit" class="btn btn-sm btn-warning text-dark shadow-sm fw-bold">
@@ -101,21 +101,26 @@
                             </td>
                         @else
                             @for($day=1; $day<=5; $day++)
-                                @php $entry = $timetable[$day][$slot->period_number] ?? null; @endphp
-
                                 <td class="tt-cell align-middle text-center p-1">
-                                    @if($entry)
-                                        <div class="slot-content p-1 rounded-2">
-                                            <div class="text-primary fw-bold" style="font-size: 0.85rem;">
-                                                {{ $entry->subject->name }}
+                                    {{-- Check if there is ANY data for this slot --}}
+                                    @if(isset($timetable[$day][$slot->period_number]))
+
+                                        {{-- Loop through ALL subjects in this slot (Bucket) --}}
+                                        @foreach($timetable[$day][$slot->period_number] as $entry)
+                                            <div class="slot-content p-1 mb-1 border-bottom">
+                                                <span class="text-primary fw-bold">{{ $entry->subject->name }}</span>
+
+                                                @if($entry->teacher)
+                                                    <br>
+                                                    <span class="text-muted small">
+                                                        {{ $entry->teacher->short_code }}
+                                                    </span>
+                                                @endif
                                             </div>
-                                            @if($entry->teacher)
-                                                <div class="text-muted d-flex align-items-center justify-content-center gap-1" style="font-size: 0.7rem;">
-                                                    {{ $entry->teacher->short_code }}
-                                                </div>
-                                            @endif
-                                        </div>
+                                        @endforeach
+
                                     @else
+                                        {{-- No classes scheduled --}}
                                         <span class="text-muted opacity-25">&middot;</span>
                                     @endif
                                 </td>

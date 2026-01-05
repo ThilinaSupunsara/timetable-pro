@@ -19,13 +19,15 @@
                     <i class="bi bi-file-earmark-pdf-fill me-1"></i> PDF
                 </a>
 
-                <form action="{{ route('timetable.generate_single_python', $selectedSection->id) }}" method="POST" onsubmit="return confirm('Regenerate?');">
-                    @csrf
-                    <input type="hidden" name="section_id" value="{{ $selectedSection->id }}">
-                    <button type="submit" class="btn btn-sm btn-warning text-dark shadow-sm fw-bold">
-                        <i class="bi bi-arrow-repeat me-1"></i> Regenerate
-                    </button>
-                </form>
+
+
+                <form action="{{ route('timetable.generate_single_python', $selectedSection->id) }}" method="POST" id="quickGenForm">
+                @csrf
+                <input type="hidden" name="section_id" value="{{ $selectedSection->id }}">
+                 <button type="submit" class="btn btn-sm btn-warning text-dark shadow-sm fw-bold" onclick="confirmQuickGenerate()">
+                    Regenerate <i class="bi bi-arrow-repeat me-1"></i>
+                </button>
+            </form>
             @endif
         </div>
     </div>
@@ -167,4 +169,27 @@
         .break-cell div { background-color: #eee !important; -webkit-print-color-adjust: exact; border-top: 1px solid #000; border-bottom: 1px solid #000; }
     }
 </style>
+@endpush
+
+
+
+@push('scripts')
+<script>
+    function confirmQuickGenerate() {
+        Swal.fire({
+            title: 'Run Auto Generator?',
+            text: "This will create timetables for this class based on your allocations.",
+            icon: 'question',
+            showCancelButton: true,
+            confirmButtonColor: '#16a34a',
+            confirmButtonText: 'Yes, Generate',
+            customClass: { popup: 'rounded-4' }
+        }).then((result) => {
+            if (result.isConfirmed) {
+                Swal.showLoading();
+                document.getElementById('quickGenForm').submit();
+            }
+        });
+    }
+</script>
 @endpush
